@@ -1,1 +1,11 @@
-
+pandas
+openpyxl
+wikipedia-api
+requests
+PyPDF2
+openai
+openai==0.28
+google-cloud-texttospeech
+gtts
+python-dotenv
+stability-sdk
