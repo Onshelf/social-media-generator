@@ -1,0 +1,61 @@
+# Standard Python ignores
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdk/
+venv/
+env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+pip-selfcheck.json
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs and databases
+*.log
+*.sqlite
+*.db
+
+# Output folders (generated content)
+/outputs/
+/outputs/*
+!/outputs/.gitkeep  # Optional: keeps folder in repo but empty
+
+# API keys and sensitive data
+.env
+*.env
+config_secret.py
+secrets.json
+credentials.json
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Temporary files
+*.tmp
+*.temp
