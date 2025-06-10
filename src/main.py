@@ -1,6 +1,6 @@
-from utils.excel_utils import read_names_from_excel
-from utils.file_utils import create_folder_structure
-from utils.web_utils import download_wikipedia_pdf
+from data_processing.excel_reader import get_names_from_excel
+from data_processing.file_manager import create_folder_structure
+from data_processing.pdf_downloader import download_wikipedia_pdf
 
 def main():
     # Configuration
