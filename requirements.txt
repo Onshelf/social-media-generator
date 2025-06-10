@@ -2,7 +2,7 @@ pandas
 openpyxl
 wikipedia-api
 requests
-PyPDF2
+PyPDF2>=3.0.0
 openai
 openai==0.28
 google-cloud-texttospeech
