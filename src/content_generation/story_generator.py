@@ -1,7 +1,25 @@
-class LegacyStoryGenerator(StoryGenerator):
+from pathlib import Path
+from typing import Optional
+from .openai_client import OpenAIClient
+
+class LegacyStoryGenerator:
+    """
+    Generates YouTube documentary-style scripts about historical figures' legacies
+    """
+    def __init__(self, openai_client: OpenAIClient):
+        self.client = openai_client
+
     def generate_legacy_story(self, figure_name: str, text: str, output_path: Path) -> bool:
         """
         Generate a compelling video script about a historical figure's impact
+        
+        Args:
+            figure_name: Name of the historical figure
+            text: Source content to base the story on
+            output_path: Where to save the generated script
+            
+        Returns:
+            bool: True if generation and saving succeeded
         """
         prompt = f"""Create a YouTube documentary-style script about {figure_name}'s lasting impact:
 
@@ -36,6 +54,7 @@ Requirements:
         return False
 
     def _save_legacy_story(self, story: str, path: Path, name: str) -> bool:
+        """Formats and saves the generated story with production notes"""
         processed = f"# {name}'s Legacy Documentary\n\n{story}\n\n" \
                   f"PRODUCTION CHECKLIST:\n" \
                   f"- Verify historical accuracy of visuals\n" \
