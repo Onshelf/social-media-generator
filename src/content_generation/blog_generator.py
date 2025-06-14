@@ -13,11 +13,8 @@ class LegacyBlogGenerator:
             "NO passive voice"
         ]
 
-    def generate_blog(self, figure_name: str, text: str, output_path: Path, seo_keyword: str = "") -> bool:
-        """Generate an SEO-optimized blog article about a historical figure"""
-        # First format the negative prompts
+    def generate_blog(self, figure_name: str, text: str, output_path: Path) -> bool:
         formatted_negatives = "\n- ".join(self.negative_prompts)
-        
         prompt = f"""Write a comprehensive blog article titled:
 "How {figure_name} Changed the Course of History"
 
@@ -40,7 +37,7 @@ Article Structure:
    - Further reading suggestions
 
 SEO Requirements:
-- Primary keyword: {seo_keyword or figure_name.lower()}
+- Primary keyword: {figure_name.lower()}
 - Subheadings every 300 words
 - Readability: 8th grade level
 
@@ -54,16 +51,11 @@ Avoid:
             max_tokens=2000
         )
 
-        if response and (blog := response.choices[0].message.content):
-            return self._save_blog(blog, output_path, figure_name)
+        if response:
+            processed = f"# How {figure_name} Changed History\n\n{response}\n\n" \
+                       f"SEO CHECKLIST:\n" \
+                       f"- Word count: {len(response.split())}\n" \
+                       f"- Readability score: Target 60+\n" \
+                       f"- Internal links: Add 2-3"
+            return self.client.save_to_file(processed, output_path)
         return False
-
-    def _save_blog(self, content: str, path: Path, name: str) -> bool:
-        """Save blog post with SEO metadata"""
-        formatted = f"# How {name} Changed History\n\n{content}\n\n" \
-                   f"SEO CHECKLIST:\n" \
-                   f"- Word count: {len(content.split())}\n" \
-                   f"- Readability score: Target 60+\n" \
-                   f"- Internal links: Add 2-3"
-        path.write_text(formatted)
-        return path.exists()
