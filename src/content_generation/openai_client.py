@@ -1,35 +1,35 @@
-import openai
+from openai import OpenAI
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Optional
 import logging
 
 class OpenAIClient:
     def __init__(self, api_key: str):
         """Initialize with API key and default settings"""
-        openai.api_key = api_key
+        self.client = OpenAI(api_key=api_key)
         self.logger = logging.getLogger(__name__)
         self.default_params = {
-            'model': "gpt-4-1106-preview",  # Updated to latest model
+            'model': "gpt-4-1106-preview",
             'temperature': 0.7,
             'max_tokens': 2000
         }
 
-    def generate_content(self, prompt: str, content_type: str, **kwargs) -> Optional[Dict]:
+    def generate_content(self, prompt: str, content_type: str, **kwargs) -> Optional[str]:
         """
-        Generate content with proper error handling
+        Generate content using the latest OpenAI API
         
         Args:
-            prompt: The input prompt
-            content_type: Story/Post/Blog (for logging)
+            prompt: Input prompt
+            content_type: For logging purposes
             **kwargs: Override default params
             
         Returns:
-            API response or None if failed
+            Generated content or None if failed
         """
         params = {**self.default_params, **kwargs}
         
         try:
-            response = openai.ChatCompletion.create(
+            response = self.client.chat.completions.create(
                 messages=[
                     {"role": "system", "content": f"You are a professional {content_type} writer."},
                     {"role": "user", "content": prompt}
@@ -37,7 +37,7 @@ class OpenAIClient:
                 **params
             )
             self.logger.info(f"Successfully generated {content_type}")
-            return response
+            return response.choices[0].message.content
         except Exception as e:
             self.logger.error(f"Failed to generate {content_type}: {str(e)}")
             return None
