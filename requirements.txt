@@ -1,0 +1,23 @@
+# Core Data Processing
+pandas>=2.0.3,<3.0.0  # Modern version with better Excel support
+openpyxl>=3.1.2  # Required for pandas Excel handling
+PyPDF2>=3.0.0,<4.0.0
+requests>=2.31.0,<3.0.0  # Security updates
+
+# Wikipedia Integration
+wikipedia-api>=0.5.8  # Alternative to direct scraping
+
+# OpenAI Integration
+openai>=1.0.0,<2.0.0  # Current stable version (replaces 0.28)
+python-dotenv>=1.0.0  # For API key management
+
+# Text-to-Speech (Optional)
+google-cloud-texttospeech>=2.14.0,<3.0.0  # For voiceovers
+gtts>=2.4.0,<3.0.0  # Alternative TTS
+
+# Image Generation (Optional)
+stability-sdk>=0.4.0,<1.0.0  # For AI-generated images
+
+# Development Tools (Recommended)
+loguru>=0.7.2  # Better logging
+tqdm>=4.66.0  # Progress bars
