@@ -1,23 +1,27 @@
-# Core Data Processing
-pandas>=2.0.3,<3.0.0  # Modern version with better Excel support
-openpyxl>=3.1.2  # Required for pandas Excel handling
-PyPDF2>=3.0.0,<4.0.0
-requests>=2.31.0,<3.0.0  # Security updates
-
-# Wikipedia Integration
-wikipedia-api>=0.5.8  # Alternative to direct scraping
+# ================= CORE DEPENDENCIES =================
+# Data Processing
+pandas>=2.0.3,<3.0.0          # DataFrame operations
+openpyxl>=3.1.2,<4.0.0        # Excel file support
+PyPDF2>=3.0.0,<4.0.0          # PDF text extraction
+requests>=2.31.0,<3.0.0       # HTTP requests
 
 # OpenAI Integration
-openai>=1.0.0,<2.0.0  # Current stable version (replaces 0.28)
-python-dotenv>=1.0.0  # For API key management
+openai>=1.0.0,<2.0.0          # Official OpenAI SDK
+python-dotenv>=1.0.0,<2.0.0   # Environment management
 
-# Text-to-Speech (Optional)
-google-cloud-texttospeech>=2.14.0,<3.0.0  # For voiceovers
-gtts>=2.4.0,<3.0.0  # Alternative TTS
+# ================ OPTIONAL COMPONENTS ================
+# Wikipedia Integration
+wikipedia-api>=0.5.8,<1.0.0   # Wikipedia data access
 
-# Image Generation (Optional)
-stability-sdk>=0.4.0,<1.0.0  # For AI-generated images
+# Multimedia Generation
+pdf2image>=1.16.0,<2.0.0      # PDF to image conversion
+Pillow>=10.0.0,<11.0.0        # Image processing
+stability-sdk>=0.4.0,<1.0.0   # Stable Diffusion integration
 
-# Development Tools (Recommended)
-loguru>=0.7.2  # Better logging
-tqdm>=4.66.0  # Progress bars
+# Audio Generation
+gtts>=2.4.0,<3.0.0            # Google Text-to-Speech
+google-cloud-texttospeech>=2.14.0,<3.0.0  # GCP TTS
+
+# =============== DEVELOPMENT TOOLS ================
+loguru>=0.7.2,<1.0.0          # Enhanced logging
+tqdm>=4.66.0,<5.0.0           # Progress bars
