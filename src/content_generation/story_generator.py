@@ -3,43 +3,50 @@ from typing import Optional
 from .openai_client import OpenAIClient
 
 class LegacyStoryGenerator:
-    def __init__(self, openai_client: OpenAIClient):
-        self.client = openai_client
+    def __init__(self, client: OpenAIClient):
+        self.client = client
 
-    def generate_legacy_story(self, figure_name: str, text: str, output_path: Path) -> bool:
-        prompt = f"""Create a YouTube documentary-style script about {figure_name}'s lasting impact:
+    def generate_story(self, figure_name: str, source_text: str, output_path: Path) -> bool:
+        prompt = f"""Write a compelling historical narrative about {figure_name} structured as follows:
+
+1. THE HOOK (1 paragraph):
+Begin with a dramatic moment that captures {figure_name}'s essence
+
+2. THE BACKGROUND (2 paragraphs):
+- Childhood and formative experiences
+- Historical context of their era
+
+3. THE STRUGGLE (3 paragraphs):
+- Key challenges they faced
+- Their innovative solutions
+- Major obstacles overcome
+
+4. THE LEGACY (2 paragraphs):
+- Lasting impact on their field
+- How their work affects us today
+
+Maintain these stylistic elements:
+- Vivid, descriptive language
+- Historical accuracy
+- Emotional resonance
+- Theme of perseverance
 
 Source Material:
-{text}
-
-Requirements:
-1. Narrative Arc:
-   - Opening hook: Pose an intriguing question about their legacy
-   - Act 1: Early life and challenges [Visual: Period recreations]
-   - Act 2: Key contributions [B-roll: Historical documents]
-   - Act 3: Modern-day impact [Visual: Contemporary applications]
-
-2. Content Rules:
-   - Emphasize human elements over dates
-   - Include 3 "impact moments" with [Visual] cues
-   - End with reflection prompt: "How has {figure_name} shaped your world?"
-
-3. Production Notes:
-   - Target length: 10 minutes (1500 words)
-   - Pace: 140WPM with dramatic pauses
-   - Suggested music: Epic historical score"""
+{source_text[:3000]}"""
 
         response = self.client.generate_content(
             prompt=prompt,
-            content_type="legacy_story",
-            temperature=0.8
+            model="gpt-4o-mini-2024-07-18",
+            max_tokens=1200,
+            temperature=0.7
         )
-        
+
         if response:
-            processed = f"# {figure_name}'s Legacy Documentary\n\n{response}\n\n" \
-                      f"PRODUCTION CHECKLIST:\n" \
-                      f"- Verify historical accuracy of visuals\n" \
-                      f"- Include {figure_name}'s portrait in closing credits\n" \
-                      f"- Add 'Learn More' links in description"
-            return self.client.save_to_file(processed, output_path)
+            structured_content = f"""HISTORICAL NARRATIVE: {figure_name}
+            
+{response}
+
+---            
+This story was generated from verified historical sources."""
+            return self.client.save_to_file(structured_content, output_path)
         return False
