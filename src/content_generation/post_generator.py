@@ -3,49 +3,26 @@ from typing import Optional
 from .openai_client import OpenAIClient
 
 class LegacyPostGenerator:
-    def __init__(self, openai_client: OpenAIClient):
-        self.client = openai_client
-        self.negative_prompts = [
-            "NO dates or years",
-            "NO complex statistics",
-            "NO long paragraphs",
-            "NO technical jargon",
-            "NO vague calls-to-action"
-        ]
+    def __init__(self, client: OpenAIClient):
+        self.client = client
 
-    def generate_post(self, figure_name: str, text: str, output_path: Path) -> bool:
-        formatted_negatives = "\n- ".join(self.negative_prompts)
-        prompt = f"""Create a Facebook post about {figure_name}'s historical impact:
-        
-Source Content:
-{text}
+    def generate_post(self, figure_name: str, source_text: str, output_path: Path) -> bool:
+        prompt = f"""Create a Facebook post about {figure_name} with:
+1. HOOK: Start with a question
+2. BODY: 2 short paragraphs (40-60 words each)
+3. STYLE: Conversational, use emojis
+4. HASHTAGS: #{figure_name.replace(' ','')} #History #Legacy
 
-Requirements:
-1. Structure:
-   - Attention-grabbing first line
-   - 2-3 short paragraphs
-   - Emoji every 2-3 sentences
-   - Clear call-to-action
-
-2. Style:
-   - Conversational but respectful tone
-   - Hashtags: #{figure_name.replace(' ','')} #HistoryMakers #HumanLegacy
-   - Character limit: 1000
-
-3. Avoid:
-   - {formatted_negatives}"""
+SOURCE MATERIAL:
+{source_text[:2000]}"""
 
         response = self.client.generate_content(
             prompt=prompt,
-            content_type="facebook_post",
-            temperature=0.9,
-            max_tokens=500
+            model="gpt-4o-mini-2024-07-18",
+            max_tokens=300
         )
 
         if response:
-            processed = f"// {figure_name}'s Historical Impact Post\n\n{response}\n\n" \
-                       f"POSTING TIPS:\n" \
-                       f"- Best time: Weekdays 1-3 PM\n" \
-                       f"- Suggested image: Historical portrait or artifact"
-            return self.client.save_to_file(processed, output_path)
+            content = f"👍 {figure_name} Facebook Post\n\n{response}"
+            return self.client.save_to_file(content, output_path)
         return False
