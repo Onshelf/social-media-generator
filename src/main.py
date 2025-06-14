@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Social Media Content Generator for Historical Figures
-Generates YouTube scripts, Facebook posts, and blog articles
+Social Media Content Generator - Fully Functional Version
 """
 
 import sys
 from pathlib import Path
+from datetime import datetime
 from data_processing.excel_reader import get_names_from_excel
 from data_processing.file_manager import create_folder_structure
 from data_processing.pdf_downloader import download_wikipedia_pdf
@@ -15,112 +15,102 @@ from content_generation.story_generator import LegacyStoryGenerator
 from content_generation.post_generator import LegacyPostGenerator
 from content_generation.blog_generator import LegacyBlogGenerator
 
-# Configuration
 CONFIG = {
-    "input_file": "inputs/names_list.xlsx",
+    "input_file": "input/Names.xlsx",
     "output_dir": "outputs",
     "platforms": ["YouTube", "Facebook", "Blog"],
-    "openai_key": "your-api-key-here",  # Replace with actual key
-    "max_figures": 3  # Safety limit
+    "openai_key": "Your_API",
+    "model": "gpt-4o-mini-2024-07-18",
+    "max_figures": 5,
+    "min_text_length": 500,
+    "timeout": 30
 }
 
-def process_figure(figure_name: str, openai_client: OpenAIClient, output_base: Path) -> bool:
-    """Process a single historical figure through the pipeline"""
+def process_figure(figure_name: str, client: OpenAIClient) -> bool:
+    """Process a single historical figure"""
     try:
         print(f"\n{'='*50}")
         print(f"🔄 Processing: {figure_name}")
         print(f"{'='*50}")
+
+        # 1. Create folder structure
+        figure_dir = create_folder_structure(
+            base_dir=Path(CONFIG["output_dir"]),
+            figure_name=figure_name,
+            platforms=CONFIG["platforms"]
+        )
+
+        # 2. Download and process PDF
+        pdf_path = download_wikipedia_pdf(
+            figure_name=figure_name,
+            save_path=figure_dir,
+            timeout=CONFIG["timeout"]
+        )
         
-        # Setup directories
-        figure_dir = output_base / figure_name.replace(" ", "_")
-        figure_dir.mkdir(parents=True, exist_ok=True)
-        
-        # 1. Download Wikipedia PDF
-        print("📥 Downloading Wikipedia content...")
-        pdf_path = download_wikipedia_pdf(figure_name, figure_dir)
-        if not pdf_path.exists():
-            raise FileNotFoundError(f"PDF download failed for {figure_name}")
-        
-        # 2. Extract text
-        print("🔍 Extracting text content...")
-        pdf_processor = PDFProcessor()
-        extracted_text, page_count = pdf_processor.extract_text(pdf_path)
-        if not extracted_text:
-            raise ValueError(f"No text extracted (pages: {page_count})")
-        print(f"📝 Extracted {len(extracted_text.split())} words from {page_count} pages")
-        
+        extracted_text, _ = PDFProcessor().extract_text(pdf_path)
+        if len(extracted_text.split()) < CONFIG["min_text_length"]:
+            print(f"⚠️ Insufficient content ({len(extracted_text.split())} words)")
+            return False
+
         # 3. Initialize generators
         generators = {
-            "YouTube": LegacyStoryGenerator(openai_client),
-            "Facebook": LegacyPostGenerator(openai_client),
-            "Blog": LegacyBlogGenerator(openai_client)
+            "YouTube": LegacyStoryGenerator(client).generate_story,
+            "Facebook": LegacyPostGenerator(client).generate_post,
+            "Blog": LegacyBlogGenerator(client).generate_article
         }
-        
+
         # 4. Generate content
-        print("🎨 Generating content...")
         results = []
-        
-        if "YouTube" in CONFIG["platforms"]:
-            output_path = figure_dir / "YouTube/documentary_script.txt"
-            success = generators["YouTube"].generate_legacy_story(
-                figure_name, extracted_text, output_path)
-            results.append(("YouTube", success))
-        
-        if "Facebook" in CONFIG["platforms"]:
-            output_path = figure_dir / "Facebook/legacy_post.txt"
-            success = generators["Facebook"].generate_post(
-                figure_name, extracted_text, output_path)
-            results.append(("Facebook", success))
-        
-        if "Blog" in CONFIG["platforms"]:
-            output_path = figure_dir / "Blog/impact_article.txt"
-            success = generators["Blog"].generate_blog(
-                figure_name, extracted_text, output_path)
-            results.append(("Blog", success))
-        
-        # Print results
+        for platform, generate_func in generators.items():
+            output_file = figure_dir / platform / "content.txt"
+            
+            try:
+                success = generate_func(
+                    figure_name=figure_name,
+                    source_text=extracted_text,
+                    output_path=output_file
+                )
+                results.append((platform, success))
+            except Exception as e:
+                print(f"   {platform} generation failed: {str(e)}")
+                results.append((platform, False))
+
         print("\n📊 Generation Results:")
         for platform, success in results:
-            print(f"{'✅' if success else '❌'} {platform}")
+            print(f"   {platform.ljust(8)}: {'✅' if success else '❌'}")
         
         return all(success for _, success in results)
-    
+
     except Exception as e:
         print(f"⚠️ Error processing {figure_name}: {str(e)}", file=sys.stderr)
         return False
 
 def main():
     try:
-        # Initialize clients
-        print("🚀 Initializing systems...")
-        openai_client = OpenAIClient(api_key=CONFIG["openai_key"])
+        print("🚀 Initializing Content Generator")
         
-        # 1. Read names
-        print("\n📖 Reading input file...")
+        client = OpenAIClient(api_key=CONFIG["openai_key"])
+        
         names = get_names_from_excel(CONFIG["input_file"])
         if not names:
-            raise ValueError("No names found in Excel file")
+            raise ValueError("No names found in input file")
         names = names[:CONFIG["max_figures"]]
         print(f"🧑‍🤝‍🧑 Found {len(names)} figures to process")
-        
-        # 2. Create output directory
-        output_base = Path(CONFIG["output_dir"])
-        output_base.mkdir(exist_ok=True)
-        
-        # 3. Process figures
+
         success_count = 0
         for name in names:
-            if process_figure(name, openai_client, output_base):
+            if process_figure(name, client):
                 success_count += 1
-        
-        # Final report
+
         print("\n" + "="*50)
         print(f"🏁 Completed processing {success_count}/{len(names)} figures")
-        print(f"📂 Output directory: {output_base.resolve()}")
+        print(f"📂 Output directory: {Path(CONFIG['output_dir']).resolve()}")
+        
+        return 0 if success_count == len(names) else 1
         
     except Exception as e:
-        print(f"\n🔥 Critical error: {str(e)}", file=sys.stderr)
-        sys.exit(1)
+        print(f"\n🔥 Critical Error: {str(e)}", file=sys.stderr)
+        return 1
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
