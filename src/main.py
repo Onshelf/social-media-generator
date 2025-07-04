@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Social Media Content Generator - Full Version with LinkedIn
+Social Media Content Generator - Final Consistent Version
 """
 
 import sys
@@ -16,41 +16,46 @@ from content_generation.story_generator import LegacyStoryGenerator
 from content_generation.x_generator import XPostGenerator
 from content_generation.linkedin_generator import LinkedInPostGenerator
 from content_generation.patreon_generator import PatreonPostGenerator
+from content_generation.medium_generator import MediumPostGenerator
+from content_generation.kofi_generator import KofiPostGenerator
 from content_generation.post_generator import LegacyPostGenerator
 from content_generation.blog_generator import LegacyBlogGenerator
 
 CONFIG = {
     "input_file": "/content/social-media-generator/input/Names.xlsx",
     "output_dir": "outputs",
-    "platforms": ["YouTube", "X", "Facebook", "LinkedIn", "Patreon", "Blog"],
+    "platforms": ["YouTube", "X", "Facebook", "LinkedIn", "Patreon", "Medium", "Ko-fi", "Blog"],
     "openai_key": "your-api-key-here",
     "model": "gpt-4",
     "max_figures": 5,
     "min_text_length": 500,
-    "linkedin_min_length": 600,
-    "patreon_min_length": 800,
+    "platform_requirements": {
+        "Medium": 1000,
+        "Patreon": 800,
+        "Ko-fi": 300,
+        "Blog": 700,
+        "LinkedIn": 600
+    },
     "timeout": 30,
     "x_char_limit": 280
 }
 
-def validate_content(extracted_text: str, platform: str = None) -> bool:
-    """Validate extracted content meets platform requirements"""
+def validate_content(extracted_text: str) -> Tuple[bool, int]:
+    """Validate content once and return word count"""
     if not extracted_text:
         print("❌ No text extracted from PDF")
-        return False
+        return (False, 0)
     
     word_count = len(extracted_text.split())
-    min_length = {
-        "LinkedIn": CONFIG["linkedin_min_length"],
-        "Patreon": CONFIG["patreon_min_length"],
-    }.get(platform, CONFIG["min_text_length"])
-    
-    if word_count < min_length:
-        print(f"❌ Insufficient content for {platform if platform else 'processing'} "
-              f"({word_count} words, need {min_length})")
-        return False
-    
     print(f"✓ Content validated ({word_count} words)")
+    return (True, word_count)
+
+def check_platform_requirements(platform: str, word_count: int) -> bool:
+    """Check if content meets platform-specific requirements"""
+    min_length = CONFIG["platform_requirements"].get(platform, CONFIG["min_text_length"])
+    if word_count < min_length:
+        print(f"❌ Insufficient content for {platform} ({word_count} words, need {min_length})")
+        return False
     return True
 
 def generate_youtube_content(
@@ -112,14 +117,16 @@ def process_figure(figure_name: str, client: OpenAIClient) -> bool:
             timeout=CONFIG["timeout"]
         )
         
-        # 3. Extract content
+        # 3. Extract content (single validation)
         processor = PDFProcessor()
         extracted_text, _, extracted_images = processor.extract_content(pdf_path, figure_dir)
         
         if extracted_images:
             print(f"📸 Saved {len(extracted_images)} images to {figure_dir/'extracted_pics'}")
         
-        if not validate_content(extracted_text):
+        # Validate content once and get word count
+        is_valid, word_count = validate_content(extracted_text)
+        if not is_valid:
             return False
 
         # 4. Initialize all generators
@@ -132,6 +139,8 @@ def process_figure(figure_name: str, client: OpenAIClient) -> bool:
             "Facebook": LegacyPostGenerator(client),
             "LinkedIn": LinkedInPostGenerator(client),
             "Patreon": PatreonPostGenerator(client),
+            "Medium": MediumPostGenerator(client),
+            "Ko-fi": KofiPostGenerator(client),
             "Blog": LegacyBlogGenerator(client)
         }
 
@@ -149,24 +158,28 @@ def process_figure(figure_name: str, client: OpenAIClient) -> bool:
         ))
 
         # Generate other platform content
-        for platform in ["X", "Facebook", "LinkedIn", "Patreon", "Blog"]:
+        for platform in ["X", "Facebook", "LinkedIn", "Patreon", "Medium", "Ko-fi", "Blog"]:
             output_file = figure_dir / platform / "content.txt"
             
             try:
-                # Skip if platform has special length requirements
-                if platform in ["LinkedIn", "Patreon"] and not validate_content(extracted_text, platform):
+                # Check platform requirements using pre-calculated word count
+                if not check_platform_requirements(platform, word_count):
                     results.append((platform, False))
                     continue
                 
-                success = generators[platform].generate_post(
-                    figure_name=figure_name,
-                    source_text=extracted_text,
-                    output_path=output_file
-                ) if platform != "Blog" else generators[platform].generate_article(
-                    figure_name=figure_name,
-                    source_text=extracted_text,
-                    output_path=output_file
-                )
+                # Handle Blog separately since it uses generate_article
+                if platform == "Blog":
+                    success = generators[platform].generate_article(
+                        figure_name=figure_name,
+                        source_text=extracted_text,
+                        output_path=output_file
+                    )
+                else:
+                    success = generators[platform].generate_post(
+                        figure_name=figure_name,
+                        source_text=extracted_text,
+                        output_path=output_file
+                    )
                 
                 results.append((platform, success))
             except Exception as e:
