@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Social Media Content Generator - YouTube Dual Output
+Social Media Content Generator - Full Version with All Platforms
 """
 
 import sys
@@ -12,23 +12,24 @@ from data_processing.pdf_downloader import download_wikipedia_pdf
 from data_processing.pdf_processor import PDFProcessor
 from content_generation.openai_client import OpenAIClient
 from content_generation.youtube_generator import YouTubePostGenerator
-from content_generation.story_generator import LegacyStoryGenerator  # For YouTube stories
-from content_generation.post_generator import LegacyPostGenerator
+from content_generation.x_generator import XPostGenerator
+from content_generation.post_generator import LegacyPostGenerator  # Facebook
 from content_generation.blog_generator import LegacyBlogGenerator
 
 CONFIG = {
     "input_file": "/content/social-media-generator/input/Names.xlsx",
     "output_dir": "outputs",
-    "platforms": ["YouTube", "Facebook", "Blog"],
+    "platforms": ["YouTube", "X", "Facebook", "Blog"],  # All platforms
     "openai_key": "your-api-key-here",
     "model": "gpt-4",
     "max_figures": 5,
     "min_text_length": 500,
-    "timeout": 30
+    "timeout": 30,
+    "x_char_limit": 280
 }
 
 def process_figure(figure_name: str, client: OpenAIClient) -> bool:
-    """Process a single historical figure with dual YouTube output"""
+    """Process a single historical figure for all platforms"""
     try:
         print(f"\n{'='*50}")
         print(f"🔄 Processing: {figure_name}")
@@ -59,58 +60,33 @@ def process_figure(figure_name: str, client: OpenAIClient) -> bool:
             print(f"⚠️ Insufficient content ({len(extracted_text.split()) if extracted_text else 0} words)")
             return False
 
-        # 4. Initialize generators
+        # 4. Initialize all generators
         generators = {
-            "YouTube": {
-                "post": YouTubePostGenerator(client),
-                "story": LegacyStoryGenerator(client)
-            },
-            "Facebook": LegacyPostGenerator(client),
+            "YouTube": YouTubePostGenerator(client),
+            "X": XPostGenerator(client),
+            "Facebook": LegacyPostGenerator(client),  # Facebook generator
             "Blog": LegacyBlogGenerator(client)
         }
 
-        # 5. Generate content
+        # 5. Generate platform-specific content
         results = []
-        youtube_dir = figure_dir / "YouTube"
-        
-        # Generate YouTube content (both post and story)
-        try:
-            # Generate YouTube post
-            post_success = generators["YouTube"]["post"].generate_post(
-                figure_name=figure_name,
-                source_text=extracted_text,
-                output_path=youtube_dir / "post.txt"
-            )
-            results.append(("YouTube Post", post_success))
-            
-            # Generate YouTube story
-            story_success = generators["YouTube"]["story"].generate_story(
-                figure_name=figure_name,
-                source_text=extracted_text,
-                output_path=youtube_dir / "story.txt"
-            )
-            results.append(("YouTube Story", story_success))
-        except Exception as e:
-            print(f"   YouTube generation failed: {str(e)}")
-            results.append(("YouTube Post", False))
-            results.append(("YouTube Story", False))
-
-        # Generate other platform content
-        for platform in ["Facebook", "Blog"]:
+        for platform, generator in generators.items():
             output_file = figure_dir / platform / "content.txt"
+            
             try:
-                if platform == "Facebook":
-                    success = generators[platform].generate_post(
+                if platform in ["YouTube", "X", "Facebook"]:  # All use generate_post
+                    success = generator.generate_post(
                         figure_name=figure_name,
                         source_text=extracted_text,
                         output_path=output_file
                     )
                 elif platform == "Blog":
-                    success = generators[platform].generate_article(
+                    success = generator.generate_article(
                         figure_name=figure_name,
                         source_text=extracted_text,
                         output_path=output_file
                     )
+                
                 results.append((platform, success))
             except Exception as e:
                 print(f"   {platform} generation failed: {str(e)}")
@@ -118,7 +94,7 @@ def process_figure(figure_name: str, client: OpenAIClient) -> bool:
 
         print("\n📊 Generation Results:")
         for platform, success in results:
-            print(f"   {platform.ljust(12)}: {'✅' if success else '❌'}")
+            print(f"   {platform.ljust(8)}: {'✅' if success else '❌'}")
         
         return all(success for _, success in results)
 
@@ -130,20 +106,25 @@ def main():
     """Main execution function"""
     try:
         print("🚀 Initializing Content Generator")
+        print(f"📌 Platforms: {', '.join(CONFIG['platforms'])}")
         
+        # 1. Initialize OpenAI client
         client = OpenAIClient(api_key=CONFIG["openai_key"])
         
+        # 2. Get names from input file
         names = get_names_from_excel(CONFIG["input_file"])
         if not names:
             raise ValueError("No names found in input file")
         names = names[:CONFIG["max_figures"]]
         print(f"🧑‍🤝‍🧑 Found {len(names)} figures to process")
 
+        # 3. Process each figure
         success_count = 0
         for name in names:
             if process_figure(name, client):
                 success_count += 1
 
+        # 4. Final report
         print("\n" + "="*50)
         print(f"🏁 Completed processing {success_count}/{len(names)} figures")
         print(f"📂 Output directory: {Path(CONFIG['output_dir']).resolve()}")
