@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Social Media Content Generator - Full Version with Dual YouTube Output
+Social Media Content Generator - Full Version with LinkedIn
 """
 
 import sys
@@ -14,6 +14,7 @@ from content_generation.openai_client import OpenAIClient
 from content_generation.youtube_generator import YouTubePostGenerator
 from content_generation.story_generator import LegacyStoryGenerator
 from content_generation.x_generator import XPostGenerator
+from content_generation.linkedin_generator import LinkedInPostGenerator
 from content_generation.patreon_generator import PatreonPostGenerator
 from content_generation.post_generator import LegacyPostGenerator
 from content_generation.blog_generator import LegacyBlogGenerator
@@ -21,11 +22,12 @@ from content_generation.blog_generator import LegacyBlogGenerator
 CONFIG = {
     "input_file": "/content/social-media-generator/input/Names.xlsx",
     "output_dir": "outputs",
-    "platforms": ["YouTube", "X", "Facebook", "Patreon", "Blog"],
+    "platforms": ["YouTube", "X", "Facebook", "LinkedIn", "Patreon", "Blog"],
     "openai_key": "your-api-key-here",
     "model": "gpt-4",
     "max_figures": 5,
     "min_text_length": 500,
+    "linkedin_min_length": 600,
     "patreon_min_length": 800,
     "timeout": 30,
     "x_char_limit": 280
@@ -38,7 +40,10 @@ def validate_content(extracted_text: str, platform: str = None) -> bool:
         return False
     
     word_count = len(extracted_text.split())
-    min_length = CONFIG["patreon_min_length"] if platform == "Patreon" else CONFIG["min_text_length"]
+    min_length = {
+        "LinkedIn": CONFIG["linkedin_min_length"],
+        "Patreon": CONFIG["patreon_min_length"],
+    }.get(platform, CONFIG["min_text_length"])
     
     if word_count < min_length:
         print(f"❌ Insufficient content for {platform if platform else 'processing'} "
@@ -61,15 +66,12 @@ def generate_youtube_content(
     # Generate YouTube post (description)
     post_file = youtube_dir / "post.txt"
     try:
-        print("\nGenerating YouTube post (description)...")
-        post_success = post_generator.generate_post(
+        success = post_generator.generate_post(
             figure_name=figure_name,
             source_text=extracted_text,
             output_path=post_file
         )
-        results.append(("YouTube Post", post_success))
-        if post_success:
-            print(f"✓ Saved to {post_file}")
+        results.append(("YouTube Post", success))
     except Exception as e:
         print(f"❌ YouTube Post failed: {str(e)}")
         results.append(("YouTube Post", False))
@@ -77,15 +79,12 @@ def generate_youtube_content(
     # Generate YouTube story (script)
     story_file = youtube_dir / "story.txt"
     try:
-        print("\nGenerating YouTube story (script)...")
-        story_success = story_generator.generate_story(
+        success = story_generator.generate_story(
             figure_name=figure_name,
             source_text=extracted_text,
             output_path=story_file
         )
-        results.append(("YouTube Story", story_success))
-        if story_success:
-            print(f"✓ Saved to {story_file}")
+        results.append(("YouTube Story", success))
     except Exception as e:
         print(f"❌ YouTube Story failed: {str(e)}")
         results.append(("YouTube Story", False))
@@ -131,6 +130,7 @@ def process_figure(figure_name: str, client: OpenAIClient) -> bool:
             },
             "X": XPostGenerator(client),
             "Facebook": LegacyPostGenerator(client),
+            "LinkedIn": LinkedInPostGenerator(client),
             "Patreon": PatreonPostGenerator(client),
             "Blog": LegacyBlogGenerator(client)
         }
@@ -140,53 +140,35 @@ def process_figure(figure_name: str, client: OpenAIClient) -> bool:
         youtube_dir = figure_dir / "YouTube"
         
         # Generate YouTube content (both post and story)
-        youtube_results = generate_youtube_content(
+        results.extend(generate_youtube_content(
             figure_name=figure_name,
             extracted_text=extracted_text,
             youtube_dir=youtube_dir,
             post_generator=generators["YouTube"]["post"],
             story_generator=generators["YouTube"]["story"]
-        )
-        results.extend(youtube_results)
+        ))
 
         # Generate other platform content
-        for platform in ["X", "Facebook", "Patreon", "Blog"]:
+        for platform in ["X", "Facebook", "LinkedIn", "Patreon", "Blog"]:
             output_file = figure_dir / platform / "content.txt"
             
             try:
-                # Skip if Patreon doesn't have enough content
-                if platform == "Patreon" and not validate_content(extracted_text, "Patreon"):
+                # Skip if platform has special length requirements
+                if platform in ["LinkedIn", "Patreon"] and not validate_content(extracted_text, platform):
                     results.append((platform, False))
                     continue
                 
-                if platform == "X":
-                    success = generators[platform].generate_post(
-                        figure_name=figure_name,
-                        source_text=extracted_text,
-                        output_path=output_file
-                    )
-                elif platform == "Facebook":
-                    success = generators[platform].generate_post(
-                        figure_name=figure_name,
-                        source_text=extracted_text,
-                        output_path=output_file
-                    )
-                elif platform == "Patreon":
-                    success = generators[platform].generate_post(
-                        figure_name=figure_name,
-                        source_text=extracted_text,
-                        output_path=output_file
-                    )
-                elif platform == "Blog":
-                    success = generators[platform].generate_article(
-                        figure_name=figure_name,
-                        source_text=extracted_text,
-                        output_path=output_file
-                    )
+                success = generators[platform].generate_post(
+                    figure_name=figure_name,
+                    source_text=extracted_text,
+                    output_path=output_file
+                ) if platform != "Blog" else generators[platform].generate_article(
+                    figure_name=figure_name,
+                    source_text=extracted_text,
+                    output_path=output_file
+                )
                 
                 results.append((platform, success))
-                if success:
-                    print(f"✓ {platform} content generated")
             except Exception as e:
                 print(f"❌ {platform} generation failed: {str(e)}")
                 results.append((platform, False))
@@ -205,7 +187,8 @@ def main():
     """Main execution function"""
     try:
         print("🚀 Social Media Content Generator")
-        print(f"📌 Target Platforms: {', '.join(CONFIG['platforms'])} (YouTube: Post + Story)")
+        print(f"📌 Target Platforms: {', '.join(CONFIG['platforms'])}")
+        print(f"   - YouTube: Generates both post.txt and story.txt")
         
         # 1. Initialize OpenAI client
         client = OpenAIClient(api_key=CONFIG["openai_key"])
