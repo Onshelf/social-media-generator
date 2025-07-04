@@ -7,6 +7,7 @@ class MediumPostGenerator:
         self.client = client
 
     def generate_post(self, figure_name: str, source_text: str, output_path: Path) -> bool:
+        """Generate a Medium article (using generate_post for consistency)"""
         prompt = f"""Create a Medium article about {figure_name} with:
 1. HEADLINE: Catchy but sophisticated title (Max 100 chars)
 2. SUBHEADER: Engaging preview text
@@ -23,7 +24,7 @@ SOURCE MATERIAL:
         response = self.client.generate_content(
             prompt=prompt,
             model="gpt-4",
-            max_tokens=1200  # Longer for detailed articles
+            max_tokens=1200
         )
 
         if response:
