@@ -12,7 +12,7 @@ from data_processing.pdf_downloader import download_wikipedia_pdf
 from data_processing.pdf_processor import PDFProcessor
 from content_generation.openai_client import OpenAIClient
 from content_generation.story_generator import LegacyStoryGenerator
-from content_generation.post_generator import LegacyPostGenerator
+from content_generation.youtube_generator import YouTubePostGenerator  # Changed this line
 from content_generation.blog_generator import LegacyBlogGenerator
 
 CONFIG = {
@@ -62,7 +62,7 @@ def process_figure(figure_name: str, client: OpenAIClient) -> bool:
 
         # 4. Initialize content generators
         generators = {
-            "YouTube": LegacyStoryGenerator(client),
+            "YouTube": YouTubePostGenerator(client),  # Changed this line
             "Facebook": LegacyPostGenerator(client),
             "Blog": LegacyBlogGenerator(client)
         }
@@ -75,7 +75,7 @@ def process_figure(figure_name: str, client: OpenAIClient) -> bool:
             try:
                 # Call the appropriate method based on platform
                 if platform == "YouTube":
-                    success = generator.generate_story(
+                    success = generator.generate_post(  # Changed this line (same method name)
                         figure_name=figure_name,
                         source_text=extracted_text,
                         output_path=output_file
