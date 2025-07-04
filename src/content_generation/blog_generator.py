@@ -1,113 +1,41 @@
 from pathlib import Path
-from datetime import datetime
-from typing import Optional, Union
-import logging
-from .openai_client import OpenAIClient  # Relative import
+from typing import Optional
+from .openai_client import OpenAIClient
 
 class LegacyBlogGenerator:
-    """Generates professional blog articles with consistent formatting"""
-    
     def __init__(self, client: OpenAIClient):
         self.client = client
-        self.logger = logging.getLogger(__name__)
-        self.max_source_chars = 3000  # Truncate long source texts
-        self.default_model = "gpt-4"
 
-    def generate_article(self, figure_name: str, source_text: str, output_path: Union[str, Path]) -> bool:
-        """Main generation method matching your existing interface"""
-        try:
-            output_path = Path(output_path) if isinstance(output_path, str) else output_path
-            output_path.parent.mkdir(parents=True, exist_ok=True)
+    def generate_post(self, figure_name: str, source_text: str, output_path: Path) -> bool:
+        """
+        Generate a long-form blog article (using generate_post name for consistency)
+        while maintaining article-style content quality.
+        """
+        prompt = f"""Create a comprehensive blog article about {figure_name} with these sections:
+        
+1. TITLE: SEO-optimized and intriguing (Max 80 characters)
+2. INTRODUCTION: Hook with a surprising fact or question
+3. BODY: 3-5 well-researched sections with subheadings
+4. KEY INSIGHTS: Bullet points of important takeaways
+5. CONCLUSION: Thought-provoking summary and call-to-action
+6. STYLE: Engaging yet authoritative, suitable for educated audience
+7. FORMATTING: Use Markdown with proper headings and lists
+8. WORD COUNT: 800-1200 words
+9. TAGS: {figure_name.replace(' ','')}, history, biography, education
 
-            prompt = self._build_prompt(figure_name, source_text)
-            response = self._get_ai_response(prompt)
-            
-            if not self._validate_response(response):
-                return False
-                
-            return self._save_output(
-                content=response,
-                figure_name=figure_name,
-                output_path=output_path
-            )
-            
-        except Exception as e:
-            self.logger.error(f"Blog generation failed: {str(e)}")
-            return False
+SOURCE MATERIAL:
+{source_text[:2000]}"""
 
-    def _build_prompt(self, figure_name: str, source_text: str) -> str:
-        """Constructs the detailed generation prompt"""
-        return f"""Write a comprehensive blog article about {figure_name} with this exact structure:
+        response = self.client.generate_content(
+            prompt=prompt,
+            model="gpt-4",
+            max_tokens=1500  # Longer for detailed articles
+        )
 
-# [Engaging Title]
+        if response:
+            content = f"✍️ Blog Article: {figure_name}\n\n{response}"
+            return self.client.save_to_file(content, output_path)
+        return False
 
-**Introduction** (1-2 paragraphs establishing significance)
-
-## Early Life and Background
-- Key formative experiences
-- Education and influences
-
-## Major Achievements
-- Breakthrough contributions
-- Important milestones
-
-## Challenges Faced
-- Obstacles overcome
-- Controversies addressed
-
-## Lasting Legacy
-- Impact on their field
-- Modern relevance
-
-**Conclusion** (Memorable summary)
-
-Requirements:
-- Strict Markdown formatting
-- 800-1200 words
-- 3-5 subheadings
-- 2-3 relevant quotes
-- Academic tone
-
-Source Context:
-{source_text[:self.max_source_chars]}"""
-
-    def _get_ai_response(self, prompt: str) -> Optional[str]:
-        """Handles the AI API communication"""
-        try:
-            return self.client.generate_content(
-                prompt=prompt,
-                model=self.default_model,
-                max_tokens=1500,
-                temperature=0.7
-            )
-        except Exception as e:
-            self.logger.error(f"API request failed: {str(e)}")
-            return None
-
-    def _validate_response(self, response: Optional[str]) -> bool:
-        """Validates the generated content"""
-        if not response:
-            self.logger.error("Empty response received")
-            return False
-            
-        word_count = len(response.split())
-        if word_count < 500:  # Minimum word count
-            self.logger.warning(f"Insufficient content: {word_count} words")
-            return False
-            
-        return True
-
-    def _save_output(self, content: str, figure_name: str, output_path: Path) -> bool:
-        """Handles file output with proper formatting"""
-        try:
-            formatted = f"""<!-- Generated Blog Article: {figure_name} -->
-{content}
-
-<div class="article-footer">
-    <p><em>Generated on {datetime.now().strftime('%Y-%m-%d')}</em></p>
-</div>"""
-            output_path.write_text(formatted, encoding='utf-8')
-            return True
-        except Exception as e:
-            self.logger.error(f"Failed to save article: {str(e)}")
-            return False
+    # Alias for backward compatibility
+    generate_article = generate_post
