@@ -1,231 +1,55 @@
 #!/usr/bin/env python3
 """
-Social Media Content Generator - Final Consistent Version
+Social Media Content Generator - Modular Version
 """
 
 import sys
+import os
 from pathlib import Path
-from typing import List, Tuple
-from data_processing.excel_reader import get_names_from_excel
-from data_processing.file_manager import create_folder_structure
-from data_processing.pdf_downloader import download_wikipedia_pdf
-from data_processing.pdf_processor import PDFProcessor
-from content_generation.openai_client import OpenAIClient
-from content_generation.youtube_generator import YouTubePostGenerator
-from content_generation.story_generator import LegacyStoryGenerator
-from content_generation.x_generator import XPostGenerator
-from content_generation.linkedin_generator import LinkedInPostGenerator
-from content_generation.patreon_generator import PatreonPostGenerator
-from content_generation.medium_generator import MediumPostGenerator
-from content_generation.kofi_generator import KofiPostGenerator
-from content_generation.post_generator import LegacyPostGenerator
-from content_generation.blog_generator import LegacyBlogGenerator
 
-CONFIG = {
-    "input_file": "/content/social-media-generator/input/Names.xlsx",
-    "output_dir": "outputs",
-    "platforms": ["YouTube", "X", "Facebook", "LinkedIn", "Patreon", "Medium", "Ko-fi", "Blog"],
-    "openai_key": "your-api-key-here",
-    "model": "gpt-4",
-    "max_figures": 5,
-    "min_text_length": 500,
-    "platform_requirements": {
-        "Medium": 1000,
-        "Patreon": 800,
-        "Ko-fi": 300,
-        "Blog": 700,
-        "LinkedIn": 600
-    },
-    "timeout": 30,
-    "x_char_limit": 280
-}
+# Add the project root to Python path
+project_root = Path(__file__).parent.parent
+sys.path.append(str(project_root))
 
-def validate_content(extracted_text: str) -> Tuple[bool, int]:
-    """Validate content once and return word count"""
-    if not extracted_text:
-        print("❌ No text extracted from PDF")
-        return (False, 0)
-    
-    word_count = len(extracted_text.split())
-    print(f"✓ Content validated ({word_count} words)")
-    return (True, word_count)
-
-def check_platform_requirements(platform: str, word_count: int) -> bool:
-    """Check if content meets platform-specific requirements"""
-    min_length = CONFIG["platform_requirements"].get(platform, CONFIG["min_text_length"])
-    if word_count < min_length:
-        print(f"❌ Insufficient content for {platform} ({word_count} words, need {min_length})")
-        return False
-    return True
-
-def generate_youtube_content(
-    figure_name: str,
-    extracted_text: str,
-    youtube_dir: Path,
-    post_generator: YouTubePostGenerator,
-    story_generator: LegacyStoryGenerator
-) -> List[Tuple[str, bool]]:
-    """Generate both post and story for YouTube"""
-    results = []
-    
-    # Generate YouTube post (description)
-    post_file = youtube_dir / "post.txt"
-    try:
-        success = post_generator.generate_post(
-            figure_name=figure_name,
-            source_text=extracted_text,
-            output_path=post_file
-        )
-        results.append(("YouTube Post", success))
-    except Exception as e:
-        print(f"❌ YouTube Post failed: {str(e)}")
-        results.append(("YouTube Post", False))
-    
-    # Generate YouTube story (script)
-    story_file = youtube_dir / "story.txt"
-    try:
-        success = story_generator.generate_story(
-            figure_name=figure_name,
-            source_text=extracted_text,
-            output_path=story_file
-        )
-        results.append(("YouTube Story", success))
-    except Exception as e:
-        print(f"❌ YouTube Story failed: {str(e)}")
-        results.append(("YouTube Story", False))
-    
-    return results
-
-def process_figure(figure_name: str, client: OpenAIClient) -> bool:
-    """Process a single figure across all platforms"""
-    try:
-        print(f"\n{'='*50}")
-        print(f"🔄 Processing: {figure_name}")
-        print(f"{'='*50}")
-
-        # 1. Create folder structure
-        figure_dir = create_folder_structure(
-            base_dir=Path(CONFIG["output_dir"]),
-            figure_name=figure_name,
-            platforms=CONFIG["platforms"]
-        )
-
-        # 2. Download and process PDF
-        pdf_path = download_wikipedia_pdf(
-            figure_name=figure_name,
-            save_path=figure_dir,
-            timeout=CONFIG["timeout"]
-        )
-        
-        # 3. Extract content (single validation)
-        processor = PDFProcessor()
-        extracted_text, _, extracted_images = processor.extract_content(pdf_path, figure_dir)
-        
-        if extracted_images:
-            print(f"📸 Saved {len(extracted_images)} images to {figure_dir/'extracted_pics'}")
-        
-        # Validate content once and get word count
-        is_valid, word_count = validate_content(extracted_text)
-        if not is_valid:
-            return False
-
-        # 4. Initialize all generators
-        generators = {
-            "YouTube": {
-                "post": YouTubePostGenerator(client),
-                "story": LegacyStoryGenerator(client)
-            },
-            "X": XPostGenerator(client),
-            "Facebook": LegacyPostGenerator(client),
-            "LinkedIn": LinkedInPostGenerator(client),
-            "Patreon": PatreonPostGenerator(client),
-            "Medium": MediumPostGenerator(client),
-            "Ko-fi": KofiPostGenerator(client),
-            "Blog": LegacyBlogGenerator(client)
-        }
-
-        # 5. Generate content
-        results = []
-        youtube_dir = figure_dir / "YouTube"
-        
-        # Generate YouTube content (both post and story)
-        results.extend(generate_youtube_content(
-            figure_name=figure_name,
-            extracted_text=extracted_text,
-            youtube_dir=youtube_dir,
-            post_generator=generators["YouTube"]["post"],
-            story_generator=generators["YouTube"]["story"]
-        ))
-
-        # Generate other platform content
-        for platform in ["X", "Facebook", "LinkedIn", "Patreon", "Medium", "Ko-fi", "Blog"]:
-            output_file = figure_dir / platform / "content.txt"
-            
-            try:
-                # Check platform requirements using pre-calculated word count
-                if not check_platform_requirements(platform, word_count):
-                    results.append((platform, False))
-                    continue
-                
-                # Handle Blog separately since it uses generate_article
-                if platform == "Blog":
-                    success = generators[platform].generate_article(
-                        figure_name=figure_name,
-                        source_text=extracted_text,
-                        output_path=output_file
-                    )
-                else:
-                    success = generators[platform].generate_post(
-                        figure_name=figure_name,
-                        source_text=extracted_text,
-                        output_path=output_file
-                    )
-                
-                results.append((platform, success))
-            except Exception as e:
-                print(f"❌ {platform} generation failed: {str(e)}")
-                results.append((platform, False))
-
-        print("\n📊 Generation Results:")
-        for platform, success in results:
-            print(f"   {platform.ljust(12)}: {'✅' if success else '❌'}")
-        
-        return all(success for _, success in results)
-
-    except Exception as e:
-        print(f"⚠️ Error processing {figure_name}: {str(e)}", file=sys.stderr)
-        return False
+from src.config.config_manager import ConfigManager
+from src.processing.figure_processor import FigureProcessor
+from src.data_processing.excel_reader import get_names_from_excel
+from src.content_generation.openai_client import OpenAIClient
 
 def main():
     """Main execution function"""
     try:
+        config_manager = ConfigManager()
+        
         print("🚀 Social Media Content Generator")
-        print(f"📌 Target Platforms: {', '.join(CONFIG['platforms'])}")
+        print(f"📌 Target Platforms: {', '.join(config_manager.get_platforms())}")
         print(f"   - YouTube: Generates both post.txt and story.txt")
         
+        # Rest of your main() function remains the same...
         # 1. Initialize OpenAI client
-        client = OpenAIClient(api_key=CONFIG["openai_key"])
+        client = OpenAIClient(api_key=config_manager.get_openai_key())
         
         # 2. Get names from input file
-        names = get_names_from_excel(CONFIG["input_file"])
+        names = get_names_from_excel(config_manager.get_input_file())
         if not names:
             raise ValueError("No names found in input file")
-        names = names[:CONFIG["max_figures"]]
+        names = names[:config_manager.get_max_figures()]
         print(f"\n🧑‍🤝‍🧑 Found {len(names)} figures to process")
         print(f"🔍 First figure: {names[0]}")
 
         # 3. Process each figure
+        figure_processor = FigureProcessor(config_manager)
         success_count = 0
         for i, name in enumerate(names, 1):
             print(f"\n📌 Processing figure {i}/{len(names)}")
-            if process_figure(name, client):
+            if figure_processor.process_figure(name, client):
                 success_count += 1
 
         # 4. Final report
         print("\n" + "="*50)
         print(f"🏁 Processing Complete")
         print(f"✅ Successful: {success_count}/{len(names)} figures")
-        print(f"📂 Output Directory: {Path(CONFIG['output_dir']).resolve()}")
+        print(f"📂 Output Directory: {config_manager.get_output_dir().resolve()}")
         
         return 0 if success_count == len(names) else 1
         
