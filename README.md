@@ -9,5 +9,5 @@ Generate social media contents automatically
 !pip install -r requirements.txt
 ```
 ```
-!python main.py
+!python /content/social-media-generator/src/main.py
 ```
